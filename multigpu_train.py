@@ -26,26 +26,10 @@ tf.app.flags.DEFINE_integer('save_summary_steps', 100, '')
 FLAGS = tf.app.flags.FLAGS
 gpus = list(range(len(FLAGS.gpu_list.split(','))))
 
-def mean_image_subtraction(images, means=[123.68, 116.78, 103.94]):
-    '''
-    image normalization
-    :param images:
-    :param means:
-    :return:
-    '''
-    num_channels = images.get_shape().as_list()[-1]
-    if len(means) != num_channels:
-      raise ValueError('len(means) must match the number of channels')
-    channels = tf.split(axis=3, num_or_size_splits=num_channels, value=images)
-    for i in range(num_channels):
-        channels[i] -= means[i]
-    return tf.concat(axis=3, values=channels)
-
-
 def tower_loss(images, labels, reuse_variable=None):
     with tf.variable_scope(tf.get_variable_scope(), reuse=reuse_variable):
         with slim.arg_scope(alexnet.alexnet_v2_arg_scope()):
-            images = mean_image_subtraction(images)
+            images = readdata.mean_image_subtraction(images)
             outputs, end_points = alexnet.alexnet_v2(images, num_classes=FLAGS.num_classes)
             logger.debug(outputs.get_shape().as_list())
             logger.debug(labels.get_shape().as_list())
