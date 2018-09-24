@@ -12,7 +12,7 @@ logger = tool_util.logger
 tf.app.flags.DEFINE_integer('input_size', 224, '')
 tf.app.flags.DEFINE_integer('batch_size_per_gpu', 32, '')
 tf.app.flags.DEFINE_integer('num_readers', 16, '')
-tf.app.flags.DEFINE_float('learning_rate', 0.001, '')
+tf.app.flags.DEFINE_float('learning_rate', 0.0005, '')
 tf.app.flags.DEFINE_float('keep_prob', 0.5, '')
 tf.app.flags.DEFINE_integer('max_steps', 600000, '')
 tf.app.flags.DEFINE_string('gpu_list', '0', '')
@@ -107,7 +107,7 @@ def main(argv=None):
 
 
     summary_opt = tf.summary.merge_all()
-    saver = tf.train.Saver(tf.global_variables())
+    saver = tf.train.Saver()
     summary_writer = tf.summary.FileWriter(FLAGS.checkpoint_path, tf.get_default_graph())
 
     init = tf.global_variables_initializer()
