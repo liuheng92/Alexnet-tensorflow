@@ -14,7 +14,7 @@ tf.app.flags.DEFINE_integer('batch_size_per_gpu', 32, '')
 tf.app.flags.DEFINE_integer('num_readers', 16, '')
 tf.app.flags.DEFINE_float('learning_rate', 0.001, '')
 tf.app.flags.DEFINE_float('keep_prob', 0.5, '')
-tf.app.flags.DEFINE_integer('max_steps', 20000, '')
+tf.app.flags.DEFINE_integer('max_steps', 600000, '')
 tf.app.flags.DEFINE_string('gpu_list', '0', '')
 tf.app.flags.DEFINE_string('checkpoint_path', './classify/', '')
 tf.app.flags.DEFINE_integer('num_classes', 2, '')
@@ -79,9 +79,9 @@ def main(argv=None):
 
     global_step = tf.get_variable('global_step', [], initializer=tf.constant_initializer(0), trainable=False)
     learning_rate = tf.train.exponential_decay(FLAGS.learning_rate, global_step, decay_steps=10000, decay_rate=0.94, staircase=True)
-    # optimizer = tf.train.AdamOptimizer('learning_rate', learning_rate)
-    optimizer = tf.train.MomentumOptimizer(learning_rate, momentum=0.9)
     tf.summary.scalar('learning_rate', learning_rate)
+    optimizer = tf.train.AdamOptimizer(learning_rate)
+    # optimizer = tf.train.MomentumOptimizer(learning_rate, momentum=0.9)
 
     #split data for multi gpus
     input_image_splits = tf.split(input_images, len(gpus))
@@ -143,10 +143,8 @@ def main(argv=None):
 
             if step % 10 == 0:
                 num_examples_per_step = FLAGS.batch_size_per_gpu*len(gpus)
-                epoch = tf.div(global_step, num_examples_per_step)
-                e = sess.run(epoch)
                 examples_per_sec = num_examples_per_step/duration
-                logger.info('epoch {:03d}, step {:06d}, model_loss {:.4f}, total_loss {:.4f}, {:.2f} seconds/step, {:.2f} examples/second'.format(int(e), step, ml, tl, duration, examples_per_sec))
+                logger.info('step {:06d}, model_loss {:.4f}, total_loss {:.4f}, {:.2f} seconds/step, {:.2f} examples/second'.format(step, ml, tl, duration, examples_per_sec))
 
             if step % FLAGS.save_checkpoint_steps == 0:
                 saver.save(sess, FLAGS.checkpoint_path + 'model.ckpt', global_step=global_step)

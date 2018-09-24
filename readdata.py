@@ -28,10 +28,10 @@ def mean_image_subtraction(images, means=[123.68, 116.78, 103.94]):
         channels[i] -= means[i]
     return tf.concat(axis=3, values=channels)
 
-def get_images():
+def get_images(file_path=FLAGS.training_image_path):
     filelist = []
     for ext in ['jpg', 'JPG', 'jpeg', 'png']:
-        filelist.extend(glob.glob(os.path.join(FLAGS.training_image_path, '*.{}'.format(ext))))
+        filelist.extend(glob.glob(os.path.join(file_path, '*.{}'.format(ext))))
     return filelist
 
 def get_lables():
