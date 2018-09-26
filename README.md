@@ -15,4 +15,4 @@ python test.py
 
 #### References
 + *Alex Krizhevsky, Ilya Sutskever and Geoffrey E. Hinton.* ImageNet Classification with Deep Convolutional Neural Networks. Advances in Neural Inforamtion Processing Systems 25, 2012.
-+ *https://github.com/argman/EAST
++ https://github.com/argman/EAST
