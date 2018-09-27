@@ -3,7 +3,6 @@ import tensorflow as tf
 from tensorflow.contrib import slim
 import time
 import tool_util
-import readdata
 import numpy as np
 
 logger = tool_util.logger
@@ -22,6 +21,8 @@ tf.app.flags.DEFINE_string('pretrained_model_path', None, '')
 tf.app.flags.DEFINE_boolean('restore', False, 'whether to resotre from checkpoint')
 tf.app.flags.DEFINE_integer('save_checkpoint_steps', 1000, '')
 tf.app.flags.DEFINE_integer('save_summary_steps', 100, '')
+
+import readdata
 
 FLAGS = tf.app.flags.FLAGS
 gpus = list(range(len(FLAGS.gpu_list.split(','))))

@@ -1,6 +1,5 @@
 from alexnet import alexnet
 import tensorflow as tf
-import readdata
 from tensorflow.contrib import slim
 from tool_util import logger
 import cv2
@@ -12,6 +11,8 @@ tf.app.flags.DEFINE_string('test_image_path', './kaggle/test1/','test images to 
 tf.app.flags.DEFINE_string('gpu_list', '', '')
 tf.app.flags.DEFINE_string('checkpoint_path', './classify/', '')
 tf.app.flags.DEFINE_integer('num_classes', 2, '')
+
+import readdata
 
 FLAGS = tf.app.flags.FLAGS
 
