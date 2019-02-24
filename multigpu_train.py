@@ -116,6 +116,10 @@ def main(argv=None):
 
     init = tf.global_variables_initializer()
 
+    vn = [v.name for v in tf.trainable_variables()]
+    for name in vn:
+        print name
+
     if FLAGS.pretrained_model_path is not None:
         variable_restore_op = slim.assign_from_checkpoint_fn(FLAGS.pretrained_model_path, slim.get_trainable_variables(),
                                                              ignore_missing_vars=True)
