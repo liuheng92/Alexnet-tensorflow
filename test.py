@@ -1,4 +1,5 @@
 from alexnet import alexnet
+from nets.resnet import resnet_v1
 import tensorflow as tf
 from tensorflow.contrib import slim
 from tool_util import logger
@@ -7,9 +8,9 @@ import time
 
 #only support 224 in this alexnet
 tf.app.flags.DEFINE_integer('input_size', 224, '')
-tf.app.flags.DEFINE_string('test_image_path', './kaggle/test1/','test images to use')
+tf.app.flags.DEFINE_string('test_image_path', './kaggle/test/','test images to use')
 tf.app.flags.DEFINE_string('gpu_list', '', '')
-tf.app.flags.DEFINE_string('checkpoint_path', './classify/', '')
+tf.app.flags.DEFINE_string('checkpoint_path', './classify_tmp2/', '')
 tf.app.flags.DEFINE_integer('num_classes', 2, '')
 
 import readdata
@@ -26,8 +27,10 @@ def main(argv=None):
         keep_prob = tf.placeholder(tf.float32)
 
         input_images = readdata.mean_image_subtraction(input_images)
-        with slim.arg_scope(alexnet.alexnet_v2_arg_scope()):
-            outputs, _ = alexnet.alexnet_v2(input_images, num_classes=FLAGS.num_classes, is_training=False)
+        # with slim.arg_scope(alexnet.alexnet_v2_arg_scope()):
+        #     outputs, _ = alexnet.alexnet_v2(input_images, num_classes=FLAGS.num_classes, is_training=False)
+        with slim.arg_scope(resnet_v1.resnet_arg_scope(weight_decay=1e-5)):
+            outputs, _ = resnet_v1.resnet_v1_50(input_images,  is_training=True, scope='resnet_v1_50', num_classes=2)
             logger.debug(outputs.get_shape().as_list())
             squeeze_outputs = tf.squeeze(outputs)
             logger.debug(tf.shape(squeeze_outputs))

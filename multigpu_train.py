@@ -4,21 +4,22 @@ from tensorflow.contrib import slim
 import time
 import tool_util
 import numpy as np
+from nets.resnet import resnet_v1
 
 logger = tool_util.logger
 
 #only support 224 in this alexnet
 tf.app.flags.DEFINE_integer('input_size', 224, '')
-tf.app.flags.DEFINE_integer('batch_size_per_gpu', 32, '')
+tf.app.flags.DEFINE_integer('batch_size_per_gpu', 80, '')
 tf.app.flags.DEFINE_integer('num_readers', 16, '')
 tf.app.flags.DEFINE_float('learning_rate', 0.0005, '')
 tf.app.flags.DEFINE_float('keep_prob', 0.5, '')
 tf.app.flags.DEFINE_integer('max_steps', 600000, '')
 tf.app.flags.DEFINE_string('gpu_list', '0', '')
-tf.app.flags.DEFINE_string('checkpoint_path', './classify/', '')
+tf.app.flags.DEFINE_string('checkpoint_path', './classify_tmp2/', '')
 tf.app.flags.DEFINE_integer('num_classes', 2, '')
 tf.app.flags.DEFINE_string('pretrained_model_path', None, '')
-tf.app.flags.DEFINE_boolean('restore', False, 'whether to resotre from checkpoint')
+tf.app.flags.DEFINE_boolean('restore', True, 'whether to resotre from checkpoint')
 tf.app.flags.DEFINE_integer('save_checkpoint_steps', 1000, '')
 tf.app.flags.DEFINE_integer('save_summary_steps', 100, '')
 
@@ -29,9 +30,11 @@ gpus = list(range(len(FLAGS.gpu_list.split(','))))
 
 def tower_loss(images, labels, reuse_variable=None):
     with tf.variable_scope(tf.get_variable_scope(), reuse=reuse_variable):
-        with slim.arg_scope(alexnet.alexnet_v2_arg_scope()):
+        # with slim.arg_scope(alexnet.alexnet_v2_arg_scope()):
+        with slim.arg_scope(resnet_v1.resnet_arg_scope(weight_decay=1e-5)):
             images = readdata.mean_image_subtraction(images)
-            outputs, end_points = alexnet.alexnet_v2(images, num_classes=FLAGS.num_classes)
+            outputs, end_points = resnet_v1.resnet_v1_50(images, is_training=True, scope='resnet_v1_50', num_classes=2)
+            # outputs, end_points = alexnet.alexnet_v2(images, num_classes=FLAGS.num_classes)
             logger.debug(outputs.get_shape().as_list())
             logger.debug(labels.get_shape().as_list())
             assert outputs.get_shape().as_list()==labels.get_shape().as_list()
