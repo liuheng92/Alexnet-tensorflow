@@ -1,7 +1,7 @@
 # Alexnet-tensorflow
 
 
-This repository contains an implementation of AlexNet convolutional neural network.
+This repository contains an implementation of AlexNet(resnetv1 mobilenetv2) convolutional neural network.
 
 #### train
 python multigpu_train.py
