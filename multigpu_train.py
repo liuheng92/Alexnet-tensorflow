@@ -5,18 +5,20 @@ import time
 import tool_util
 import numpy as np
 from nets.resnet import resnet_v1
+from nets.mobilenet import mobilenet_v2
 
 logger = tool_util.logger
 
 #only support 224 in this alexnet
 tf.app.flags.DEFINE_integer('input_size', 224, '')
-tf.app.flags.DEFINE_integer('batch_size_per_gpu', 80, '')
+tf.app.flags.DEFINE_integer('batch_size_per_gpu', 16, '')
 tf.app.flags.DEFINE_integer('num_readers', 16, '')
-tf.app.flags.DEFINE_float('learning_rate', 0.0005, '')
+tf.app.flags.DEFINE_float('learning_rate', 0.001, '')
 tf.app.flags.DEFINE_float('keep_prob', 0.5, '')
 tf.app.flags.DEFINE_integer('max_steps', 600000, '')
-tf.app.flags.DEFINE_string('gpu_list', '0', '')
-tf.app.flags.DEFINE_string('checkpoint_path', './classify_tmp2/', '')
+tf.app.flags.DEFINE_float('moving_average_decay', 0.997, '')
+tf.app.flags.DEFINE_string('gpu_list', None, '')
+tf.app.flags.DEFINE_string('checkpoint_path', None, '')
 tf.app.flags.DEFINE_integer('num_classes', 2, '')
 tf.app.flags.DEFINE_string('pretrained_model_path', None, '')
 tf.app.flags.DEFINE_boolean('restore', True, 'whether to resotre from checkpoint')
@@ -33,13 +35,14 @@ def tower_loss(images, labels, reuse_variable=None):
         # with slim.arg_scope(alexnet.alexnet_v2_arg_scope()):
         with slim.arg_scope(resnet_v1.resnet_arg_scope(weight_decay=1e-5)):
             images = readdata.mean_image_subtraction(images)
-            outputs, end_points = resnet_v1.resnet_v1_50(images, is_training=True, scope='resnet_v1_50', num_classes=2)
+            # outputs, end_points = mobilenet_v2.mobilenet(images, is_training=True, num_classes=FLAGS.num_classes)
+            outputs, end_points = resnet_v1.resnet_v1_50(images, is_training=True, scope='resnet_v1_50', num_classes=FLAGS.num_classes)
             # outputs, end_points = alexnet.alexnet_v2(images, num_classes=FLAGS.num_classes)
             logger.debug(outputs.get_shape().as_list())
             logger.debug(labels.get_shape().as_list())
             assert outputs.get_shape().as_list()==labels.get_shape().as_list()
     model_loss = tf.reduce_mean(
-        tf.nn.softmax_cross_entropy_with_logits_v2(logits=outputs, labels=labels, name='cross-entropy'))
+        tf.nn.softmax_cross_entropy_with_logits(logits=outputs, labels=labels, name='cross-entropy'))
     total_loss = tf.add_n([model_loss]+tf.get_collection(tf.GraphKeys.REGULARIZATION_LOSSES))
 
     if reuse_variable is None:
@@ -82,7 +85,7 @@ def main(argv=None):
     keep_prob = tf.placeholder(tf.float32)
 
     global_step = tf.get_variable('global_step', [], initializer=tf.constant_initializer(0), trainable=False)
-    learning_rate = tf.train.exponential_decay(FLAGS.learning_rate, global_step, decay_steps=10000, decay_rate=0.94, staircase=True)
+    learning_rate = tf.train.exponential_decay(FLAGS.learning_rate, global_step, decay_steps=1000, decay_rate=0.94, staircase=True)
     tf.summary.scalar('learning_rate', learning_rate)
     optimizer = tf.train.AdamOptimizer(learning_rate)
     # optimizer = tf.train.MomentumOptimizer(learning_rate, momentum=0.9)
@@ -92,39 +95,46 @@ def main(argv=None):
     gt_labels_splits = tf.split(gt_labels, len(gpus))
 
     tower_grads = []
-    reuse_variable = None
+    reuse_variables = None
     for i, gpuid in enumerate(gpus):
         with tf.device('/gpu:%d'%gpuid):
             with tf.name_scope('model_%d'%gpuid) as scope:
                 each_image_split = input_image_splits[i]
                 each_label_split = gt_labels_splits[i]
-                total_loss, model_loss = tower_loss(each_image_split, each_label_split, reuse_variable)
+                total_loss, model_loss = tower_loss(each_image_split, each_label_split, reuse_variables)
+                batch_norm_updates_op = tf.group(*tf.get_collection(tf.GraphKeys.UPDATE_OPS, scope))
+                reuse_variables = True
 
-                reuse_variable = True
+                # vars_list = [v for v in tf.trainable_variables() if 'resnet_v1_50/logits/weights:0' or 'resnet_v1_50/logits/biases:0' in v.name]
                 grads = optimizer.compute_gradients(total_loss)
                 tower_grads.append(grads)
 
     grads = average_gradients(tower_grads)
     logger.debug('grads:'+str(type(grads)))
     logger.debug(grads)
-    apply_gradient_opt = optimizer.apply_gradients(grads, global_step=global_step)
+    apply_gradient_op = optimizer.apply_gradients(grads, global_step=global_step)
 
 
     summary_opt = tf.summary.merge_all()
-    saver = tf.train.Saver()
+    # save moving average
+    variable_averages = tf.train.ExponentialMovingAverage(
+        FLAGS.moving_average_decay, global_step)
+    variables_averages_op = variable_averages.apply(tf.trainable_variables())
+    # batch norm updates
+    with tf.control_dependencies([variables_averages_op, apply_gradient_op, batch_norm_updates_op]):
+        train_op = tf.no_op(name='train_op')
+    saver = tf.train.Saver(max_to_keep=20)
     summary_writer = tf.summary.FileWriter(FLAGS.checkpoint_path, tf.get_default_graph())
 
     init = tf.global_variables_initializer()
 
-    vn = [v.name for v in tf.trainable_variables()]
-    for name in vn:
-        print name
-
     if FLAGS.pretrained_model_path is not None:
         variable_restore_op = slim.assign_from_checkpoint_fn(FLAGS.pretrained_model_path, slim.get_trainable_variables(),
                                                              ignore_missing_vars=True)
+    gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.75)
+    with tf.Session(config=tf.ConfigProto(gpu_options=gpu_options, allow_soft_placement=True)) as sess:
 
-    with tf.Session(config=tf.ConfigProto(allow_soft_placement=True)) as sess:
+        tf.train.write_graph(sess.graph.as_graph_def(), '.', 'resnet50.pbtxt', as_text=False)
         if FLAGS.restore:
             logger.info('continue training from previous checkpoint')
             ckpt = tf.train.latest_checkpoint(FLAGS.checkpoint_path)
@@ -142,7 +152,7 @@ def main(argv=None):
         for step in range(FLAGS.max_steps):
             data = next(data_generator)
             start_time = time.time()
-            ml, tl, _ = sess.run([model_loss, total_loss, apply_gradient_opt], feed_dict={input_images:data[0], gt_labels:data[1], keep_prob:FLAGS.keep_prob})
+            ml, tl, _ = sess.run([model_loss, total_loss, train_op], feed_dict={input_images:data[0], gt_labels:data[1], keep_prob:FLAGS.keep_prob})
             duration = time.time()-start_time
 
             if np.isnan(tl):
@@ -158,7 +168,7 @@ def main(argv=None):
                 saver.save(sess, FLAGS.checkpoint_path + 'model.ckpt', global_step=global_step)
 
             if step % FLAGS.save_summary_steps == 0:
-                tl, summary_str, _ = sess.run([total_loss, summary_opt, apply_gradient_opt], feed_dict={input_images:data[0], gt_labels:data[1],  keep_prob:FLAGS.keep_prob})
+                tl, summary_str, _ = sess.run([total_loss, summary_opt, train_op], feed_dict={input_images:data[0], gt_labels:data[1],  keep_prob:FLAGS.keep_prob})
                 summary_writer.add_summary(summary_str, global_step=step)
 
 if __name__=='__main__':

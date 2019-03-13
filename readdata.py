@@ -7,7 +7,7 @@ import time
 
 logger = tool_util.logger
 
-tf.app.flags.DEFINE_string('training_image_path', './kaggle/train/',
+tf.app.flags.DEFINE_string('training_image_path', './kaggle/train',
                            'training images to use')
 tf.app.flags.DEFINE_string('training_label_file', './VOCdevkit/VOC2007/ImageSets/labels.txt',
                            'training labels to use')
@@ -43,12 +43,12 @@ def get_lables():
             labellist[key] = int(value)
 
 def onehot(index):
-	""" It creates a one-hot vector with a 1.0 in
+    """ It creates a one-hot vector with a 1.0 in
 		position represented by index
 	"""
-	onehot = np.zeros(2)
-	onehot[index] = 1.0
-	return onehot
+    onehot = np.zeros(2)
+    onehot[index] = 1.0
+    return onehot
 
 def generator(input_size=224, batch_size=32):
     imagelist = np.array(get_images())
@@ -63,8 +63,8 @@ def generator(input_size=224, batch_size=32):
                h,w,_=image.shape
                assert h>0 and w>0
                image = cv2.resize(image, (input_size, input_size))
-               images.append(image[:,:,::-1].astype(np.float32))
-               #0 -- cat, 1 -- dog
+
+               #0 -- cat 1--dog
                if os.path.basename(imagelist[i]).split('.')[0]=='cat':
                    lables.append(onehot(0))
                elif os.path.basename(imagelist[i]).split('.')[0]=='dog':
@@ -72,7 +72,7 @@ def generator(input_size=224, batch_size=32):
                else:
                    logger.error(imagelist[i]+' wrong name')
                    continue
-
+               images.append(image[:, :, ::-1].astype(np.float32))
                if len(images) == batch_size:
                    yield images, lables
                    images = []

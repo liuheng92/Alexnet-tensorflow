@@ -1,3 +1,4 @@
+#-*- coding:utf-8 -*-
 from alexnet import alexnet
 from nets.resnet import resnet_v1
 import tensorflow as tf
@@ -5,11 +6,12 @@ from tensorflow.contrib import slim
 from tool_util import logger
 import cv2
 import time
+import numpy as np
 
 #only support 224 in this alexnet
 tf.app.flags.DEFINE_integer('input_size', 224, '')
-tf.app.flags.DEFINE_string('test_image_path', './kaggle/test/','test images to use')
-tf.app.flags.DEFINE_string('gpu_list', '', '')
+tf.app.flags.DEFINE_string('test_image_path', './kaggle/test','test images to use')
+tf.app.flags.DEFINE_string('gpu_list', '0', '')
 tf.app.flags.DEFINE_string('checkpoint_path', './classify_tmp2/', '')
 tf.app.flags.DEFINE_integer('num_classes', 2, '')
 
@@ -17,13 +19,13 @@ import readdata
 
 FLAGS = tf.app.flags.FLAGS
 
+
 def main(argv=None):
     import os
     os.environ['CUDA_VISIBLE_DEVICES'] = FLAGS.gpu_list
 
     with tf.get_default_graph().as_default():
         input_images = tf.placeholder(tf.float32, shape=[None, None, None, 3], name = 'input_images')
-        # global_step = tf.get_variable('global_step', [], initializer=tf.constant_initializer(0), trainable = False)
         keep_prob = tf.placeholder(tf.float32)
         vn = [v.name for v in tf.trainable_variables()]
         for name in vn:
@@ -34,17 +36,14 @@ def main(argv=None):
         # with slim.arg_scope(alexnet.alexnet_v2_arg_scope()):
         #     outputs, _ = alexnet.alexnet_v2(input_images, num_classes=FLAGS.num_classes, is_training=False)
         with slim.arg_scope(resnet_v1.resnet_arg_scope(weight_decay=1e-5)):
-            outputs, _ = resnet_v1.resnet_v1_50(input_images,  is_training=True, scope='resnet_v1_50', num_classes=2)
-            logger.debug(outputs.get_shape().as_list())
-            squeeze_outputs = tf.squeeze(outputs)
-            logger.debug(tf.shape(squeeze_outputs))
-            probs = tf.nn.softmax(squeeze_outputs)
+            outputs, end_points = resnet_v1.resnet_v1_50(input_images,  is_training=False, scope='resnet_v1_50', num_classes=FLAGS.num_classes)
+            probs = tf.squeeze(end_points['predictions'])
+
             logger.debug(tf.shape(probs))
 
 
             saver = tf.train.Saver()
             with tf.Session(config=tf.ConfigProto(allow_soft_placement=True)) as sess:
-                last_conv = sess.graph.get_tensor_by_name('alexnet_v2/fc8/weights:0')
                 ckpt_state = tf.train.get_checkpoint_state(FLAGS.checkpoint_path)
                 logger.info('Restore from {}'.format(FLAGS.checkpoint_path))
                 logger.debug("ckpt_state.model_checkpoint_path:" + ckpt_state.model_checkpoint_path)
@@ -61,14 +60,9 @@ def main(argv=None):
                     start_time = time.time()
                     logger.info(image_name)
                     prob = sess.run([probs], feed_dict={input_images:[im_resized]})
-                    lv = sess.run(last_conv)
-                    print lv
-                    # input_shape = tf.shape(outputs)
-                    # outputs_shaped = tf.reshape(outputs, [-1, input_shape[-1]])
-                    # logger.debug(outputs_shaped)
-                    # prob = tf.nn.softmax(outputs_shaped[-1])
+
                     logger.debug(prob)
-                    logger.info('detection time:{:.0f}ms result:(cat:{:.3f} dog:{:.3f})'.format(
+                    logger.info('detection time:{:.0f}ms result:(other:{:.3f} chat:{:.3f})'.format(
                         (time.time()-start_time)*1000, prob[0][0], prob[0][1]))
 
 
