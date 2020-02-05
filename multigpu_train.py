@@ -33,6 +33,7 @@ gpus = list(range(len(FLAGS.gpu_list.split(','))))
 def tower_loss(images, labels, reuse_variable=None):
     with tf.variable_scope(tf.get_variable_scope(), reuse=reuse_variable):
         # with slim.arg_scope(alexnet.alexnet_v2_arg_scope()):
+        # with slim.arg_scope(mobilenet_v2.training_scope()):
         with slim.arg_scope(resnet_v1.resnet_arg_scope(weight_decay=1e-5)):
             images = readdata.mean_image_subtraction(images)
             # outputs, end_points = mobilenet_v2.mobilenet(images, is_training=True, num_classes=FLAGS.num_classes)
