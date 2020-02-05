@@ -14,6 +14,7 @@ tf.app.flags.DEFINE_integer('num_readers', 16, '')
 tf.app.flags.DEFINE_float('learning_rate', 0.0005, '')
 tf.app.flags.DEFINE_float('keep_prob', 0.5, '')
 tf.app.flags.DEFINE_integer('max_steps', 600000, '')
+tf.app.flags.DEFINE_float('moving_average_decay', 0.997, '')
 tf.app.flags.DEFINE_string('gpu_list', '0', '')
 tf.app.flags.DEFINE_string('checkpoint_path', './classify/', '')
 tf.app.flags.DEFINE_integer('num_classes', 2, '')
@@ -108,6 +109,13 @@ def main(argv=None):
 
 
     summary_opt = tf.summary.merge_all()
+    # save moving average
+    variable_averages = tf.train.ExponentialMovingAverage(
+        FLAGS.moving_average_decay, global_step)
+    variables_averages_op = variable_averages.apply(tf.trainable_variables())
+    # batch norm updates
+    with tf.control_dependencies([variables_averages_op, apply_gradient_op, batch_norm_updates_op]):
+        train_op = tf.no_op(name='train_op')
     saver = tf.train.Saver()
     summary_writer = tf.summary.FileWriter(FLAGS.checkpoint_path, tf.get_default_graph())
 
@@ -135,7 +143,7 @@ def main(argv=None):
         for step in range(FLAGS.max_steps):
             data = next(data_generator)
             start_time = time.time()
-            ml, tl, _ = sess.run([model_loss, total_loss, apply_gradient_opt], feed_dict={input_images:data[0], gt_labels:data[1], keep_prob:FLAGS.keep_prob})
+            ml, tl, lr, _ = sess.run([model_loss, total_loss, learning_rate, apply_gradient_opt], feed_dict={input_images:data[0], gt_labels:data[1], keep_prob:FLAGS.keep_prob})
             duration = time.time()-start_time
 
             if np.isnan(tl):
@@ -145,7 +153,7 @@ def main(argv=None):
             if step % 10 == 0:
                 num_examples_per_step = FLAGS.batch_size_per_gpu*len(gpus)
                 examples_per_sec = num_examples_per_step/duration
-                logger.info('step {:06d}, model_loss {:.4f}, total_loss {:.4f}, {:.2f} seconds/step, {:.2f} examples/second'.format(step, ml, tl, duration, examples_per_sec))
+                logger.info('step {:06d}, model_loss {:.4f}, total_loss {:.4f}, learning_rate {:.6f}, {:.2f} seconds/step, {:.2f} examples/second'.format(step, ml, tl, lr, duration, examples_per_sec))
 
             if step % FLAGS.save_checkpoint_steps == 0:
                 saver.save(sess, FLAGS.checkpoint_path + 'model.ckpt', global_step=global_step)
