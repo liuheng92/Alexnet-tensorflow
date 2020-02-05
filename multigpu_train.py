@@ -130,7 +130,8 @@ def main(argv=None):
     init = tf.global_variables_initializer()
 
     if FLAGS.pretrained_model_path is not None:
-        variable_restore_op = slim.assign_from_checkpoint_fn(FLAGS.pretrained_model_path, slim.get_trainable_variables(),
+        vars_list = [v for v in slim.get_trainable_variables() if 'Logits' not in v.name]
+        variable_restore_op = slim.assign_from_checkpoint_fn(FLAGS.pretrained_model_path, vars_list,
                                                              ignore_missing_vars=True)
     gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.75)
     with tf.Session(config=tf.ConfigProto(gpu_options=gpu_options, allow_soft_placement=True)) as sess:
