@@ -35,7 +35,7 @@ def freeze_graph(input_checkpoint: str, output_node: str = "output/softmax", out
 
             saver = tf.train.Saver()
             with tf.Session(config=tf.ConfigProto(allow_soft_placement=True)) as sess:
-                ckpt_state = tf.train.get_checkpoint_state(FLAGS.checkpoint_path)
+                ckpt_state = tf.train.get_checkpoint_state(input_checkpoint)
                 saver.restore(sess, ckpt_state.model_checkpoint_path)
                 graph = tf.get_default_graph()
                 input_graph_def = graph.as_graph_def()
