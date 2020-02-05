@@ -18,7 +18,7 @@ class Predictor(object):
    
         self.sess.run(tf.global_variables_initializer())
         self.img=self.sess.graph.get_tensor_by_name('input_images:0')
-        self.probs=self.sess.graph.get_tensor_by_name('alexnet_v2_1/output:0')
+        self.probs=self.sess.graph.get_tensor_by_name('output/softmax:0')
 
     def __resize_image(self, image, short_edge_length = 224, max_length = 224):
         '''
