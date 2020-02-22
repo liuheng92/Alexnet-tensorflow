@@ -7,6 +7,7 @@ from tool_util import logger
 import cv2
 import time
 import numpy as np
+from nets.mobilenet import mobilenet_v2
 
 #only support 224 in this alexnet
 tf.app.flags.DEFINE_integer('input_size', 224, '')
@@ -29,15 +30,16 @@ def main(argv=None):
         keep_prob = tf.placeholder(tf.float32)
         vn = [v.name for v in tf.trainable_variables()]
         for name in vn:
-            print name
+            print(name)
 
         input_images = readdata.mean_image_subtraction(input_images)
-
+        with slim.arg_scope(mobilenet_v2.training_scope()):
+            outputs, end_points = mobilenet_v2.mobilenet(input_images, is_training=False, num_classes=FLAGS.num_classes)
         # with slim.arg_scope(alexnet.alexnet_v2_arg_scope()):
         #     outputs, _ = alexnet.alexnet_v2(input_images, num_classes=FLAGS.num_classes, is_training=False)
-        with slim.arg_scope(resnet_v1.resnet_arg_scope(weight_decay=1e-5)):
-            outputs, end_points = resnet_v1.resnet_v1_50(input_images,  is_training=False, scope='resnet_v1_50', num_classes=FLAGS.num_classes)
-            probs = tf.squeeze(end_points['predictions'])
+        # with slim.arg_scope(resnet_v1.resnet_arg_scope(weight_decay=1e-5)):
+        #     outputs, end_points = resnet_v1.resnet_v1_50(input_images,  is_training=False, scope='resnet_v1_50', num_classes=FLAGS.num_classes)
+            probs = tf.squeeze(end_points['Predictions'])
 
             logger.debug(tf.shape(probs))
 
