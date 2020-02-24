@@ -362,7 +362,8 @@ def mobilenet(inputs,
     net = tf.identity(net, name='embedding')
 
     with tf.variable_scope('Logits'):
-      net = global_pool(net)
+      # net = global_pool(net)
+      net = tf.reduce_mean(net, axis=[1, 2], keep_dims=True)
       end_points['global_pool'] = net
       if not num_classes:
         return net, end_points
